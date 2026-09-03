@@ -1,6 +1,6 @@
 import json, logging
 import pytest
-from pinta_print_agent.config import load_config, ConfigError
+from pinta_print_agent.config import load_config, ConfigError, config_from_dict
 from pinta_print_agent.runtime_paths import RuntimePaths
 from pinta_print_agent.main import sample_job
 from pinta_print_agent.printer import MockPrinter, PrinterError
@@ -10,8 +10,12 @@ from pinta_print_agent.models import PrintJob
 def test_config_and_runtime(tmp_path,config):
     paths=RuntimePaths.from_root(tmp_path); paths.ensure(); assert paths.database.parent.exists() and config.token_status=="configured"
     with pytest.raises(ConfigError): load_config(paths.config)
-    paths.config.write_text("{");
+    paths.config.write_text("{")
     with pytest.raises(ConfigError): load_config(paths.config)
+def test_invalid_mode_and_timeout_are_rejected():
+    base={"server":{"base_url":"http://localhost","agent_token":"private-token","connect_timeout_seconds":0,"read_timeout_seconds":1,"idle_delay_seconds":1,"error_backoff_initial_seconds":1,"error_backoff_max_seconds":1,"verify_tls":True},"printer":{"mode":"bad","name":"","paper_width_chars":42},"agent":{"agent_name":"agent","location_id":"location","health_interval_seconds":1,"log_level":"INFO"}}
+    with pytest.raises(ConfigError) as error: config_from_dict(base)
+    assert "private-token" not in str(error.value)
 def test_mock_and_ledger_persistence(tmp_path):
     job=sample_job(); content=TextReceiptRenderer().render(job.order); printer=MockPrinter(tmp_path)
     printer.print_receipt(content,146,job.job_id); assert printer.print_count==1 and (tmp_path/"order_146_11111111.txt").read_text()==content

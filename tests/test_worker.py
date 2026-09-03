@@ -12,3 +12,7 @@ def test_ack_loss_is_deduplicated(tmp_path,config):
 def test_printer_failure_acks_failed_without_ledger(tmp_path,config):
     job=sample_job(); api=MockApiClient(); worker,printer,ledger=make_worker(tmp_path,config,api,True); worker.process_one(job)
     assert ledger.lookup(job.job_id) is None and api.acks[0]["result"]=="failed"; ledger.close()
+def test_worker_stops_cleanly(tmp_path,config):
+    api=MockApiClient([None]); worker,printer,ledger=make_worker(tmp_path,config,api)
+    worker.start(); worker.stop(); worker.join(2)
+    assert not worker.is_alive()
