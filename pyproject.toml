@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pinta-print-agent"
+version = "0.1.0"
+description = "Local Windows print agent for Pinta kitchen receipts"
+requires-python = ">=3.12,<3.13"
+dependencies = ["httpx>=0.27,<1", "pystray>=0.19,<1", "Pillow>=10,<12"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
