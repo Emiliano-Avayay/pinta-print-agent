@@ -9,6 +9,6 @@ def test_schema_and_quantity_rejected():
     with pytest.raises(JobValidationError): PrintJob.from_dict(raw)
 def test_renderer_receipt_is_ascii_and_bounded():
     rendered=TextReceiptRenderer(42).render(sample_job().order)
-    assert "#146" in rendered and "22:11" in rendered and "- SIN CEBOLLA" in rendered and "ADEREZOS: MAYONESA, KETCHUP" in rendered and "MEDALLONES: 5" in rendered
+    assert "#146" in rendered and "22:11" in rendered and "- SIN CEBOLLA" in rendered and "+ MEDALLON EXTRA" in rendered and "ADEREZOS: MAYONESA, KETCHUP" in rendered and "MEDALLONES: 5" in rendered
     assert all(len(line)<=42 for line in rendered.splitlines())
     assert EscPosReceiptRenderer().render(sample_job().order).startswith(b"\x1b@")
