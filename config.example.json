@@ -1,0 +1,9 @@
+{
+  "server_url": "https://example.com",
+  "agent_token": "PASTE_TOKEN_HERE",
+  "printer": { "driver": "mock" },
+  "location_id": "pinta-main",
+  "data_dir": "",
+  "long_poll_wait_seconds": 25,
+  "request_timeout_seconds": 40
+}

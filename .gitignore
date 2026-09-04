@@ -3,7 +3,9 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 config/config.json
+config.json
+node_modules/
+dist/
 *.db
 logs/
 mock_output/
-
