@@ -8,9 +8,10 @@
   "scripts": {
     "dev": "tsx src/main.ts",
     "demo:fake": "tsx scripts/fake-backend-demo.ts",
+    "escpos:demo": "tsx scripts/escpos-demo.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.check.json",
     "lint": "eslint .",
     "test": "tsx --test tests/**/*.test.ts"
   },
