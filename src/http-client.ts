@@ -1,0 +1,17 @@
+import type { AgentConfig, PrintJob } from './types.js';
+import { parsePrintJob } from './model.js';
+export class HttpError extends Error { constructor(public readonly kind: 'AUTH' | 'DISABLED' | 'CONFLICT' | 'TEMPORARY' | 'PROTOCOL', message: string) { super(message); } }
+export interface PrintApi { health(): Promise<void>; nextJob(): Promise<PrintJob | undefined>; ackPrinted(job: PrintJob): Promise<void>; ackFailed(job: PrintJob, code: string, message: string): Promise<void>; abort(): void; close(): void }
+export class HttpPrintApi implements PrintApi {
+  private controller: AbortController | undefined;
+  constructor(private readonly config: AgentConfig, private readonly fetchFn: typeof fetch = fetch) {}
+  abort() { this.controller?.abort(); }
+  close() { this.abort(); }
+  private async request(path: string, init: RequestInit = {}): Promise<Response> { this.controller = new AbortController(); const timeout = setTimeout(() => this.controller?.abort(), this.config.requestTimeoutMs); try { const response = await this.fetchFn(`${this.config.serverUrl}${path}`, { ...init, signal: this.controller.signal, headers: { Authorization: `Bearer ${this.config.agentToken}`, Accept: 'application/json', ...(init.headers || {}) } }); if (response.status === 401) throw new HttpError('AUTH', 'HTTP 401: invalid agent token'); if (response.status === 403) throw new HttpError('DISABLED', 'HTTP 403: agent disabled'); if (response.status === 409) throw new HttpError('CONFLICT', 'HTTP 409: stale claim'); if (response.status >= 500 || response.status === 429) throw new HttpError('TEMPORARY', `HTTP ${response.status}`); return response; } catch (error) { if (error instanceof HttpError) throw error; throw new HttpError('TEMPORARY', error instanceof Error && error.name === 'AbortError' ? 'request aborted' : 'network error'); } finally { clearTimeout(timeout); this.controller = undefined; } }
+  private async json(response: Response): Promise<unknown> { try { return await response.json(); } catch { throw new HttpError('PROTOCOL', 'invalid JSON response'); } }
+  async health() { const r = await this.request('/api/print-agent/health'); if (r.status !== 200) throw new HttpError('PROTOCOL', `unexpected health HTTP ${r.status}`); const x = await this.json(r) as Record<string, unknown>; if (x.status !== 'ok' || x.schema_version !== 1 || x.location_id !== this.config.locationId) throw new HttpError('PROTOCOL', 'invalid health response'); }
+  async nextJob() { const r = await this.request(`/api/print-agent/jobs/next?wait=${this.config.longPollWaitSeconds}`); if (r.status === 204) return undefined; if (r.status !== 200) throw new HttpError('PROTOCOL', `unexpected next-job HTTP ${r.status}`); try { return parsePrintJob(await this.json(r)); } catch (error) { const code = (error as { code?: string }).code; throw new HttpError('PROTOCOL', `${code ? `${code}: ` : ''}${(error as Error).message}`); } }
+  private async ack(job: PrintJob, body: object) { const r = await this.request(`/api/print-agent/jobs/${encodeURIComponent(job.job_id)}/ack`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); if (!r.ok) throw new HttpError('PROTOCOL', `unexpected ACK HTTP ${r.status}`); }
+  ackPrinted(job: PrintJob) { return this.ack(job, { claim_token: job.claim_token, result: 'printed' }); }
+  ackFailed(job: PrintJob, error_code: string, message: string) { return this.ack(job, { claim_token: job.claim_token, result: 'failed', error_code, message: message.slice(0, 500) }); }
+}

@@ -1,0 +1,10 @@
+import { join } from 'node:path';
+import { loadConfig } from './config.js';
+import { HttpPrintApi } from './http-client.js';
+import { JobLedger } from './ledger.js';
+import { ConsoleLogger } from './logger.js';
+import { MockPrinter } from './printer.js';
+import { PrintWorker } from './worker.js';
+const config = loadConfig(); const logger = new ConsoleLogger(); const api = new HttpPrintApi(config); const ledger = new JobLedger(join(config.dataDir, 'agent.sqlite')); const printer = new MockPrinter({ dataDir: config.dataDir }); const worker = new PrintWorker(config, api, printer, ledger, logger);
+process.once('SIGINT', () => worker.stop()); process.once('SIGTERM', () => worker.stop());
+await worker.run();
