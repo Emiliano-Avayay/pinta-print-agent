@@ -99,4 +99,6 @@ Esta deduplicación cubre sólo una PC: operar dos agentes para la misma `locati
 
 `npm test` ejecuta un backend falso aislado y casos de configuración, privacidad de logs y ticket, SQLite, deduplicación, fallo de impresora, reclaim, `409`, restart, `AMBIGUOUS`, validación y MockPrinter. El caso determinístico crítico simula ACK A perdido y reclaim B: termina con `MockPrinter.calls === 1` y `ACKED` usando B.
 
+`npm run demo:fake` hace una ejecución manual local contra un FakeBackend HTTP: health → long poll → MockPrinter → SQLite → ACK.
+
 Para integrar el backend de `pedidos-pinta` sólo falta verificar el contrato congelado real contra este cliente. Para la etapa posterior, agregar un driver USB/ESC-POS separado sin mezclarlo con la ledger ni el cliente HTTP.
