@@ -22,6 +22,18 @@ class FakeBackend implements PrintApi { acks: Array<{ claim: string; result: str
 const worker = (ledger: JobLedger, printer: MockPrinter, api = new FakeBackend(), logger = new MemoryLogger()) => new PrintWorker(config(), api, printer, ledger, logger, { sleep: async () => {}, random: () => 0 });
 
 test('config loads and rejects a missing token', () => { const path = join(dir(), 'config.json'); writeFileSync(path, JSON.stringify({ server_url: 'https://pinta.test/', agent_token: 'x', printer: { driver: 'mock' } })); assert.equal(loadConfig(path).serverUrl, 'https://pinta.test'); writeFileSync(path, JSON.stringify({ server_url: 'https://pinta.test', agent_token: '', printer: { driver: 'mock' } })); assert.throws(() => loadConfig(path), ConfigError); });
+test('config accepts HTTP(S) server URLs and rejects unsupported or malformed URLs', () => {
+  const path = join(dir(), 'config.json');
+  const writeConfig = (serverUrl: string) => writeFileSync(path, JSON.stringify({ server_url: serverUrl, agent_token: 'x', printer: { driver: 'mock' } }));
+  writeConfig('http://127.0.0.1:8787');
+  assert.equal(loadConfig(path).serverUrl, 'http://127.0.0.1:8787');
+  writeConfig('https://pinta.example.com');
+  assert.equal(loadConfig(path).serverUrl, 'https://pinta.example.com');
+  writeConfig('ftp://pinta.example.com');
+  assert.throws(() => loadConfig(path), /server_url must use http:\/\/ or https:\/\//);
+  writeConfig('not a URL');
+  assert.throws(() => loadConfig(path), /server_url must be an absolute URL/);
+});
 test('logger never includes tokens', () => { const output: string[] = []; const old = console.log; console.log = (x: string) => output.push(x); try { new ConsoleLogger().info('startup', { agent_token: 'top-secret-token', server_host: 'x' }); } finally { console.log = old; } assert.equal(output.join('').includes('top-secret-token'), false); });
 test('renderer dynamically includes cheeses and excludes private/payment fields', () => { const ticket = renderKitchenTicket(job()).text; for (const line of ['CHEDDAR: 5', 'MOZZARELLA: 3', 'ROQUEFORT: 2', 'PROVOLONE: 1', 'SIN QUESO: 2']) assert.match(ticket, new RegExp(line)); for (const forbidden of ['DO NOT PRINT', '9999', 'CASH']) assert.equal(ticket.includes(forbidden), false); });
 test('new job prints, persists before ACK, then ACKs', async () => { const path = join(dir(), 'agent.sqlite'); const ledger = new JobLedger(path); const printer = new MockPrinter(); const api = new FakeBackend(); await worker(ledger, printer, api).processJob(job()); assert.equal(printer.calls, 1); assert.equal(ledger.get('job-1')?.status, 'ACKED'); assert.deepEqual(api.acks, [{ claim: 'A', result: 'printed' }]); ledger.close(); });
