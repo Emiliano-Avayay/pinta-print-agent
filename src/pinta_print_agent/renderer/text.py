@@ -23,4 +23,4 @@ class TextReceiptRenderer(BaseReceiptRenderer):
         s = order.summary
         summary = [f"MEDALLONES: {s.total_medallions}", "", f"TYBO: {s.tybo_count}   CHEDDAR: {s.cheddar_count}   ROQUEFORT: {s.roquefort_count}"]
         lines.extend(boxed(summary, w))
-        return "\n".join(line[:w] for line in lines) + "\n"
+        return "\n".join(lines) + "\n"

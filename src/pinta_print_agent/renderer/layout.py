@@ -1,7 +1,9 @@
 import textwrap
 def wrap(text: str, width: int, indent: str = "") -> list[str]:
-    available = max(1, width - len(indent))
-    return [indent + line for line in textwrap.wrap(text, width=available, break_long_words=True, break_on_hyphens=False)] or [indent]
+    if width < 1: raise ValueError("width must be positive")
+    effective_indent = indent[:max(0, width - 1)]
+    available = width - len(effective_indent)
+    return [effective_indent + line for line in textwrap.wrap(text, width=available, break_long_words=True, break_on_hyphens=False)] or [effective_indent]
 def boxed(lines: list[str], width: int) -> list[str]:
     inner = width - 2
     output = ["+" + "-" * inner + "+"]
