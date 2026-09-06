@@ -3,19 +3,31 @@ import type { PrintApi } from './http-client.js';
 import { HttpError } from './http-client.js';
 import { JobLedger } from './ledger.js';
 import { renderKitchenTicket } from './renderer.js';
-import type { AgentConfig, PrintJob, Printer } from './types.js';
+import type { AgentConfig, PrintJob, Printer, RenderedTicket } from './types.js';
 import { PrinterError } from './printer.js';
 export type WorkerResult = 'PRINTED' | 'DEDUPED' | 'FAILED' | 'AMBIGUOUS' | 'REJECTED';
+export interface PrintWorkerOptions {
+  sleep?: (ms: number) => Promise<void>;
+  random?: () => number;
+  renderTicket?: (job: PrintJob) => RenderedTicket;
+}
 export class PrintWorker {
   private running = false; private delay = 1000;
-  constructor(private readonly config: AgentConfig, private readonly api: PrintApi, private readonly printer: Printer, private readonly ledger: JobLedger, private readonly logger: Logger, private readonly sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)), private readonly random: () => number = Math.random) {}
+  private readonly sleep: (ms: number) => Promise<void>;
+  private readonly random: () => number;
+  private readonly renderTicket: (job: PrintJob) => RenderedTicket;
+  constructor(private readonly config: AgentConfig, private readonly api: PrintApi, private readonly printer: Printer, private readonly ledger: JobLedger, private readonly logger: Logger, options: PrintWorkerOptions = {}) {
+    this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.random = options.random ?? Math.random;
+    this.renderTicket = options.renderTicket ?? renderKitchenTicket;
+  }
   async processJob(job: PrintJob): Promise<WorkerResult> {
     let entry;
     try { entry = this.ledger.assertHash(job); } catch { this.logger.error('PAYLOAD_MISMATCH', { job_id: job.job_id }); return 'REJECTED'; }
     if (entry?.status === 'PRINTED' || entry?.status === 'ACKED') { this.ledger.updateClaim(job); this.logger.info('dedupe_reclaim', { job_id: job.job_id, status: entry.status }); await this.ackPrinted(job); return 'DEDUPED'; }
     if (entry?.status === 'AMBIGUOUS') { this.ledger.updateClaim(job); this.logger.error('PRINT_STATE_AMBIGUOUS', { job_id: job.job_id }); return 'AMBIGUOUS'; }
     this.ledger.receive(job); this.ledger.setPrinting(job); this.logger.info('print_start', { job_id: job.job_id, order_number: job.order.number });
-    try { await this.printer.print(renderKitchenTicket(job), job.job_id); } catch (cause) { const printerError = cause instanceof PrinterError ? cause : new PrinterError(cause instanceof Error ? cause.message : 'unknown print failure'); this.ledger.setFailed(job, printerError.code); this.logger.error('print_failed', { job_id: job.job_id, error_code: printerError.code }); try { await this.api.ackFailed(job, printerError.code, printerError.message); } catch (ackError) { this.logger.warn('failed_ack_failed', { job_id: job.job_id, reason: (ackError as Error).message }); } return 'FAILED'; }
+    try { await this.printer.print(this.renderTicket(job), job.job_id); } catch (cause) { const printerError = cause instanceof PrinterError ? cause : new PrinterError(cause instanceof Error ? cause.message : 'unknown print failure'); this.ledger.setFailed(job, printerError.code); this.logger.error('print_failed', { job_id: job.job_id, error_code: printerError.code }); try { await this.api.ackFailed(job, printerError.code, printerError.message); } catch (ackError) { this.logger.warn('failed_ack_failed', { job_id: job.job_id, reason: (ackError as Error).message }); } return 'FAILED'; }
     // This durable commit is deliberately completed before the remote ACK.
     this.ledger.setPrinted(job); this.logger.info('print_persisted', { job_id: job.job_id }); await this.ackPrinted(job); return 'PRINTED';
   }

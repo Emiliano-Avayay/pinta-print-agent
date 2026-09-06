@@ -1,7 +1,13 @@
 {
   "server_url": "https://example.com",
   "agent_token": "PASTE_TOKEN_HERE",
-  "printer": { "driver": "mock" },
+  "printer": {
+    "mode": "mock",
+    "profile": "80mm",
+    "supports_cut": true,
+    "usb": { "printer_name": "Pinta POS" },
+    "bluetooth": { "port": "COM5", "baud_rate": 9600 }
+  },
   "location_id": "pinta-main",
   "data_dir": "",
   "long_poll_wait_seconds": 25,
