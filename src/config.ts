@@ -51,7 +51,9 @@ export function loadConfig(path = process.env.PINTA_PRINT_AGENT_CONFIG || defaul
   if (!raw || typeof raw !== 'object') throw new ConfigError('config must be an object');
   const x = raw as Record<string, unknown>;
   const serverUrl = asText(x.server_url, 'server_url').replace(/\/$/, '');
-  try { new URL(serverUrl); } catch { throw new ConfigError('server_url must be an absolute URL'); }
+  let parsedServerUrl: URL;
+  try { parsedServerUrl = new URL(serverUrl); } catch { throw new ConfigError('server_url must be an absolute URL'); }
+  if (parsedServerUrl.protocol !== 'http:' && parsedServerUrl.protocol !== 'https:') throw new ConfigError('server_url must use http:// or https://');
   const printerConfig = parsePrinterConfig(x.printer);
   return { serverUrl, agentToken: asText(x.agent_token, 'agent_token'), locationId: typeof x.location_id === 'string' && x.location_id ? x.location_id : 'pinta-main', dataDir: typeof x.data_dir === 'string' && x.data_dir ? resolve(x.data_dir) : defaultDataDir(env), longPollWaitSeconds: positive(x.long_poll_wait_seconds, 'long_poll_wait_seconds', 25), requestTimeoutMs: positive(x.request_timeout_seconds, 'request_timeout_seconds', 40) * 1000, printer: printerConfig };
 }
