@@ -2,7 +2,7 @@
 
 Agent local de impresión para la cocina de Pinta. El runtime activo es **Node.js + TypeScript**: recibe trabajos por HTTPS long polling, conserva el estado localmente en SQLite y separa el ticket de cocina de los drivers de impresión.
 
-Esta etapa agrega una foundation ESC/POS independiente del hardware. Sólo genera y prueba bytes con `FakeTransport`; **no imprime en una impresora real** y no incluye USB, spooler de Windows, serial, TCP, autodetección ni drivers.
+Esta etapa agrega una foundation ESC/POS independiente del hardware y dos transportes físicos Windows configurables: RAW por spooler para USB y serial virtual para Bluetooth SPP. No hay autodetección ni fallback automático.
 
 ## Arquitectura
 
@@ -29,7 +29,7 @@ pedidos-pinta --HTTPS--> PrintWorker --SQLite local--> ACK
                                PrinterTransport
                                       |
                                       v
-                                 FakeTransport
+                 FakeTransport / WindowsRawPrinterTransport / BluetoothSerialTransport
 ```
 
 Las responsabilidades permanecen separadas:
@@ -38,6 +38,8 @@ Las responsabilidades permanecen separadas:
 - `renderKitchenTicket` decide el contenido, los estilos semánticos y el layout por columnas.
 - `EscPosEncoder` convierte un `RenderedTicket` a bytes; no conoce USB ni Windows.
 - `PrinterTransport` sólo expone `open`, `write` y `close`.
+- `WindowsRawPrinterTransport` encapsula el spooler de Windows y entrega los bytes como un documento `RAW`.
+- `BluetoothSerialTransport` encapsula un puerto serial virtual Bluetooth SPP y espera el `drain` antes de terminar la escritura.
 - `FakeTransport` captura bytes en memoria para desarrollo y tests.
 - `MockPrinter` sigue disponible y guarda el texto plano como antes.
 
@@ -68,19 +70,53 @@ npm start
 
 `config.json` nunca se versiona. Para desarrollo o tests, `PINTA_PRINT_AGENT_CONFIG=C:\ruta\config.json` permite seleccionar otra configuración.
 
-MockPrinter continúa siendo el driver seguro por defecto para desarrollo:
+MockPrinter continúa siendo el modo seguro por defecto para desarrollo. Los bloques USB y Bluetooth pueden convivir: cambiar sólo `printer.mode` elige el transporte, sin tocar código.
 
 ```json
 {
   "server_url": "https://example.com",
   "agent_token": "PASTE_TOKEN_HERE",
-  "printer": { "driver": "mock" },
+  "printer": { "mode": "mock" },
   "location_id": "pinta-main",
   "data_dir": "",
   "long_poll_wait_seconds": 25,
   "request_timeout_seconds": 40
 }
 ```
+
+USB (impresora instalada en Windows; los bytes ESC/POS se mandan sin conversión a HTML/PDF/gráficos):
+
+```json
+{
+  "server_url": "https://example.com",
+  "agent_token": "PASTE_TOKEN_HERE",
+  "printer": {
+    "mode": "usb",
+    "profile": "80mm",
+    "supports_cut": true,
+    "usb": { "printer_name": "Pinta POS" },
+    "bluetooth": { "port": "COM5", "baud_rate": 9600 }
+  }
+}
+```
+
+Bluetooth SPP (Windows debe haber asignado previamente un COM virtual):
+
+```json
+{
+  "server_url": "https://example.com",
+  "agent_token": "PASTE_TOKEN_HERE",
+  "printer": {
+    "mode": "bluetooth",
+    "profile": "80mm",
+    "supports_cut": true,
+    "usb": { "printer_name": "Pinta POS" },
+    "bluetooth": { "port": "COM5", "baud_rate": 9600 }
+  }
+}
+```
+
+Para volver a USB basta con cambiar `"mode": "usb"`. La configuración es estricta: USB exige `usb.printer_name`; Bluetooth exige `bluetooth.port` y `bluetooth.baud_rate`; `mode` y el alias legado `driver` no se pueden mezclar. `driver: "mock"` y `driver: "escpos-fake"` se aceptan sólo para compatibilidad con configuraciones de desarrollo existentes.
 
 La composición ESC/POS sin hardware se habilita explícitamente así:
 
@@ -89,7 +125,7 @@ La composición ESC/POS sin hardware se habilita explícitamente así:
   "server_url": "https://example.com",
   "agent_token": "DEVELOPMENT_ONLY",
   "printer": {
-    "driver": "escpos-fake",
+    "mode": "escpos-fake",
     "profile": "80mm",
     "supports_cut": false
   }
@@ -114,7 +150,9 @@ interface PrinterTransport {
 
 `EscPosPrinter` codifica primero y luego ejecuta exactamente un `open`, un `write(bytes)` y un `close` en `finally`. `FakeTransport` mantiene copias defensivas de cada escritura, contadores de apertura/escritura/cierre, estado abierto/cerrado, fallo configurable y delay configurable. El reloj se puede inyectar para que sus tests sean determinísticos.
 
-No existe todavía ningún transporte físico.
+`WindowsRawPrinterTransport` usa un pequeño adaptador PowerShell/Win32 aislado que llama a `OpenPrinter`, `StartDocPrinter` con tipo `RAW`, `WritePrinter` y cierra el documento y handle en `finally`. No agrega un módulo nativo de Node. Cada `write` es un único documento de spooler, y no hay reintentos internos: si el spooler falla, el error llega al worker y se conserva la semántica conservadora existente.
+
+`BluetoothSerialTransport` usa la dependencia mantenida `serialport` 13.0.0 (Node >=20; este proyecto requiere Node >=24). Su binding C++ se instala mediante binario precompilado cuando está disponible y puede requerir toolchain de compilación en instalaciones sin prebuild; por eso queda limitado a este adapter. Abre el COM configurado, envía exactamente el `Uint8Array`, espera `drain` y lo cierra. Bluetooth aquí significa exclusivamente **SPP con puerto serie virtual de Windows**. No todas las impresoras Bluetooth ofrecen SPP; si el modelo final usa BLE u otro protocolo, se reemplaza sólo este transporte, sin tocar encoder, renderer, worker ni SQLite.
 
 ## Perfiles y ancho de papel
 
@@ -229,7 +267,8 @@ No está probado físicamente:
 - compatibilidad ESC/POS de una impresora concreta;
 - cantidad real de columnas o márgenes;
 - code page para acentos y `ñ`;
-- USB, Ethernet, Windows RAW/spooler o drivers;
+- compatibilidad del driver/spooler RAW de la impresora USB concreta;
+- emparejamiento Bluetooth SPP, COM y baud rate reales;
 - estado físico, papel, tapa, cutter, drawer o buzzer.
 
 ## Decisiones pendientes para la impresora real
@@ -238,7 +277,7 @@ Cuando Pinta compre la impresora harán falta exactamente estos datos:
 
 - marca y modelo;
 - papel de 58 u 80 mm y ancho imprimible/columnas reales;
-- conexión USB o Ethernet;
+- conexión USB instalada en Windows o emparejamiento Bluetooth SPP (COM y baud rate);
 - presencia y comando compatible de autocutter;
 - driver disponible para Windows y método RAW soportado;
 - compatibilidad ESC/POS declarada y diferencias del fabricante;

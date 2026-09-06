@@ -9,5 +9,17 @@ export type TicketTextSize = 'normal' | 'double';
 export interface RenderedTicketLine { text: string; align: TicketAlignment; bold: boolean; size: TicketTextSize }
 export interface RenderedTicket { text: string; orderNumber: number; lines: readonly RenderedTicketLine[] }
 export interface Printer { print(ticket: RenderedTicket, jobId: string): Promise<void> }
-export type PrinterConfig = { driver: 'mock' } | { driver: 'escpos-fake'; profile: '58mm' | '80mm'; supportsCut: boolean };
+export type PrinterProfileName = '58mm' | '80mm';
+export interface UsbPrinterSettings { printerName: string }
+export interface BluetoothPrinterSettings { port: string; baudRate: number }
+export type PrinterConfig =
+  | { mode: 'mock' }
+  | { mode: 'usb'; profile: PrinterProfileName; supportsCut: boolean; usb: UsbPrinterSettings; bluetooth?: BluetoothPrinterSettings }
+  | { mode: 'bluetooth'; profile: PrinterProfileName; supportsCut: boolean; bluetooth: BluetoothPrinterSettings; usb?: UsbPrinterSettings }
+  // Kept for the foundation's deterministic, hardware-free development path.
+  | { mode: 'escpos-fake'; profile: PrinterProfileName; supportsCut: boolean }
+  /** @deprecated Parsed into `mode`; retained so existing programmatic development configs compile. */
+  | { driver: 'mock' }
+  /** @deprecated Parsed into `mode`; retained so existing programmatic development configs compile. */
+  | { driver: 'escpos-fake'; profile: PrinterProfileName; supportsCut: boolean };
 export interface AgentConfig { serverUrl: string; agentToken: string; locationId: string; dataDir: string; longPollWaitSeconds: number; requestTimeoutMs: number; printer: PrinterConfig }
