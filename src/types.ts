@@ -1,7 +1,8 @@
 export type JobStatus = 'RECEIVED' | 'PRINTING' | 'PRINTED' | 'ACKED' | 'FAILED' | 'AMBIGUOUS';
 
 export interface PrintItem { quantity: number; name: string; variant?: string | null; removed_ingredients: string[]; added_extras: string[]; sauces: string[] }
-export interface PrintSummary { total_medallions: number; cheese_counts: Record<string, number>; no_cheese_count: number; tybo_count?: number; cheddar_count?: number; roquefort_count?: number }
+export interface PrintCheeseSummary { total: number; cheese_counts: Record<string, number>; no_cheese_count: number }
+export interface PrintSummary { total_medallions: number; cheese_counts: Record<string, number>; no_cheese_count: number; tybo_count?: number; cheddar_count?: number; roquefort_count?: number; lomitos?: PrintCheeseSummary }
 export interface PrintOrder { number: number; time: string; accepted_at?: string; items: PrintItem[]; summary: PrintSummary }
 export interface PrintJob { schema_version: 1; job_id: string; claim_token: string; lease_expires_at: string; order: PrintOrder }
 export type TicketAlignment = 'left' | 'center' | 'right';
