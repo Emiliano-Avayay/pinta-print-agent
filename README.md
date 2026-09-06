@@ -66,6 +66,50 @@ npm start
 
 `npm run typecheck` valida `src`, `scripts` y `tests`; `npm run build` compila únicamente el runtime de `src`.
 
+## Instalación en la PC de Pinta
+
+Esta primera versión instalable requiere **Windows y Node.js >=24**. Desde una copia del repositorio, abrí PowerShell una única vez y ejecutá:
+
+```powershell
+.\scripts\windows\install.ps1
+```
+
+La instalación compila el runtime, instala únicamente las dependencias de producción en `%LOCALAPPDATA%\PintaPrintAgent\app\` y registra la tarea **Pinta Print Agent**. La tarea se activa al iniciar sesión del usuario, ejecuta `node.exe dist\main.js` desde esa carpeta instalada sin consola visible, no permite instancias simultáneas (`IgnoreNew`) y, ante una terminación inesperada, intenta hasta tres reinicios con un minuto entre intentos. No es un Windows Service: así conserva acceso a la sesión, spooler y Bluetooth/COM del usuario.
+
+Los datos que sobreviven una actualización o desinstalación normal son:
+
+```text
+%LOCALAPPDATA%\PintaPrintAgent\
+├── config.json       configuración real (no se distribuye ni se sobrescribe)
+├── agent.sqlite      deduplicación y estado durable
+├── logs\agent.log    logs JSONL rotados (hasta 5 archivos de 5 MiB)
+└── app\              runtime instalado que se puede reemplazar
+```
+
+Si todavía no existe `config.json`, el instalador copia una plantilla sin secretos y lo indica claramente; en ese caso registra la tarea pero no la inicia hasta que completes la configuración y ejecutes `start.ps1`. Completá `agent_token`, URL y la impresora antes de usar producción. Se respeta `PINTA_PRINT_AGENT_CONFIG` para una ubicación alternativa. Nunca agregues un token real al repositorio.
+
+Para USB configurá `printer.mode = "usb"` y el nombre exacto de la impresora Windows en `printer.usb.printer_name`. Para Bluetooth SPP, emparejá primero la impresora en Windows, obtené el COM virtual y configurá `printer.mode = "bluetooth"`, `printer.bluetooth.port` y `printer.bluetooth.baud_rate`. Esto sólo selecciona los transportes existentes; no cambia la lógica ESC/POS.
+
+Administración cotidiana:
+
+```powershell
+.\scripts\windows\status.ps1
+.\scripts\windows\restart.ps1
+.\scripts\windows\stop.ps1
+.\scripts\windows\start.ps1
+Get-Content "$env:LOCALAPPDATA\PintaPrintAgent\logs\agent.log" -Tail 100
+```
+
+`status.ps1` informa si la tarea existe, su estado, última ejecución y resultado. Si falta la configuración, es inválida, el servidor no responde o la impresora falla, el motivo queda en `logs\agent.log`; los logs redactan campos `token` y `Authorization`.
+
+Para actualizar, ejecutá otra vez `install.ps1` desde la versión nueva del repositorio: reemplaza sólo `app\`, conserva config/SQLite/logs y actualiza la tarea sin duplicarla. Para desinstalar sin perder el estado:
+
+```powershell
+.\scripts\windows\uninstall.ps1
+```
+
+El borrado total requiere la opción explícita y peligrosa `-PurgeData`. Para revisar una instalación sin modificar la PC usá ` .\scripts\windows\install.ps1 -DryRun`.
+
 ## Configuración de impresión
 
 `config.json` nunca se versiona. Para desarrollo o tests, `PINTA_PRINT_AGENT_CONFIG=C:\ruta\config.json` permite seleccionar otra configuración.

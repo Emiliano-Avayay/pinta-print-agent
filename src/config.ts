@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
+import { defaultConfigPath, defaultDataDir } from './runtime-paths.js';
 import type { AgentConfig, BluetoothPrinterSettings, PrinterConfig, UsbPrinterSettings } from './types.js';
 
 export class ConfigError extends Error {}
@@ -44,10 +44,8 @@ function parsePrinterConfig(value: unknown): PrinterConfig {
   return usb ? { ...common, mode: 'bluetooth', usb, bluetooth } : { ...common, mode: 'bluetooth', bluetooth };
 }
 
-export function defaultDataDir(env: NodeJS.ProcessEnv = process.env): string {
-  return join(env.LOCALAPPDATA || join(homedir(), '.local'), 'PintaPrintAgent');
-}
-export function loadConfig(path = process.env.PINTA_PRINT_AGENT_CONFIG || join(defaultDataDir(), 'config.json'), env: NodeJS.ProcessEnv = process.env): AgentConfig {
+export { defaultDataDir } from './runtime-paths.js';
+export function loadConfig(path = process.env.PINTA_PRINT_AGENT_CONFIG || defaultConfigPath(), env: NodeJS.ProcessEnv = process.env): AgentConfig {
   let raw: unknown;
   try { raw = JSON.parse(readFileSync(resolve(path), 'utf8')); } catch (error) { throw new ConfigError(`Cannot load config: ${(error as Error).message}`); }
   if (!raw || typeof raw !== 'object') throw new ConfigError('config must be an object');
