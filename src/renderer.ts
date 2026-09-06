@@ -72,6 +72,12 @@ export function renderKitchenTicket(job: PrintJob, options: KitchenTicketRenderO
     if (amount > 0) pushWrapped('', `${cheese.toUpperCase()}: ${amount}`);
   }
   if (order.summary.no_cheese_count > 0) pushWrapped('', `SIN QUESO: ${order.summary.no_cheese_count}`);
+  if (order.summary.lomitos && order.summary.lomitos.total > 0) {
+    push('');
+    pushWrapped('', `LOMITOS: ${order.summary.lomitos.total}`, true);
+    for (const [cheese, amount] of Object.entries(order.summary.lomitos.cheese_counts)) if (amount > 0) pushWrapped('', `${cheese.toUpperCase()}: ${amount}`);
+    if (order.summary.lomitos.no_cheese_count > 0) pushWrapped('', `LOMITOS SIN QUESO: ${order.summary.lomitos.no_cheese_count}`);
+  }
   push('-'.repeat(columns));
   push('');
 
