@@ -11,6 +11,7 @@
     "dev": "tsx src/main.ts",
     "demo:fake": "tsx scripts/fake-backend-demo.ts",
     "escpos:demo": "tsx scripts/escpos-demo.ts",
+    "printer:test": "tsx scripts/printer-test.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.check.json",
@@ -24,8 +25,5 @@
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0"
-  },
-  "dependencies": {
-    "serialport": "^13.0.0"
   }
 }

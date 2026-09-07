@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defaultConfigPath, defaultDataDir } from './runtime-paths.js';
-import type { AgentConfig, BluetoothPrinterSettings, PrinterConfig, UsbPrinterSettings } from './types.js';
+import type { AgentConfig, PrinterConfig, UsbPrinterSettings } from './types.js';
 
 export class ConfigError extends Error {}
 const asText = (v: unknown, name: string): string => { if (typeof v !== 'string' || !v.trim()) throw new ConfigError(`${name} is required`); return v.trim(); };
@@ -17,10 +17,6 @@ const profile = (v: unknown): '58mm' | '80mm' => {
   return v;
 };
 const parseUsb = (v: unknown): UsbPrinterSettings => ({ printerName: asText(object(v, 'printer.usb').printer_name, 'printer.usb.printer_name') });
-const parseBluetooth = (v: unknown): BluetoothPrinterSettings => {
-  const bluetooth = object(v, 'printer.bluetooth');
-  return { port: asText(bluetooth.port, 'printer.bluetooth.port'), baudRate: positive(bluetooth.baud_rate, 'printer.bluetooth.baud_rate', NaN) };
-};
 
 function parsePrinterConfig(value: unknown): PrinterConfig {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ConfigError('printer is required');
@@ -32,16 +28,9 @@ function parsePrinterConfig(value: unknown): PrinterConfig {
   const mode = printer.mode;
   if (mode === 'mock') return { mode: 'mock' };
   if (mode === 'escpos-fake') return { mode, profile: profile(printer.profile), supportsCut: boolean(printer.supports_cut, 'printer.supports_cut', false) };
-  if (mode !== 'usb' && mode !== 'bluetooth') throw new ConfigError('printer.mode must be "mock", "usb", "bluetooth", or "escpos-fake"');
-  const common = { mode, profile: profile(printer.profile), supportsCut: boolean(printer.supports_cut, 'printer.supports_cut', false) } as const;
-  const usb = printer.usb === undefined ? undefined : parseUsb(printer.usb);
-  const bluetooth = printer.bluetooth === undefined ? undefined : parseBluetooth(printer.bluetooth);
-  if (mode === 'usb') {
-    if (!usb) throw new ConfigError('printer.usb is required when printer.mode is "usb"');
-    return bluetooth ? { ...common, mode: 'usb', usb, bluetooth } : { ...common, mode: 'usb', usb };
-  }
-  if (!bluetooth) throw new ConfigError('printer.bluetooth is required when printer.mode is "bluetooth"');
-  return usb ? { ...common, mode: 'bluetooth', usb, bluetooth } : { ...common, mode: 'bluetooth', bluetooth };
+  if (mode !== 'usb') throw new ConfigError('printer.mode must be "mock", "usb", or "escpos-fake"');
+  if (printer.usb === undefined) throw new ConfigError('printer.usb is required when printer.mode is "usb"');
+  return { mode, profile: profile(printer.profile), supportsCut: boolean(printer.supports_cut, 'printer.supports_cut', false), usb: parseUsb(printer.usb) };
 }
 
 export { defaultDataDir } from './runtime-paths.js';

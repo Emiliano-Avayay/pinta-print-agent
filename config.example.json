@@ -2,11 +2,10 @@
   "server_url": "https://example.com",
   "agent_token": "PASTE_TOKEN_HERE",
   "printer": {
-    "mode": "mock",
+    "mode": "usb",
     "profile": "80mm",
     "supports_cut": true,
-    "usb": { "printer_name": "Pinta POS" },
-    "bluetooth": { "port": "COM5", "baud_rate": 9600 }
+    "usb": { "printer_name": "REEMPLAZAR_POR_NOMBRE_EXACTO_DE_WINDOWS" }
   },
   "location_id": "pinta-main",
   "data_dir": "",

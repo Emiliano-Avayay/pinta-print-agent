@@ -10,7 +10,6 @@ import { MockPrinter } from './printer.js';
 import { renderKitchenTicket } from './renderer.js';
 import { FakeTransport } from './transport/fake-transport.js';
 import type { PrinterTransport } from './transport/printer-transport.js';
-import { BluetoothSerialTransport } from './transport/bluetooth-serial-transport.js';
 import { WindowsRawPrinterTransport } from './transport/windows-raw-printer-transport.js';
 import type { AgentConfig, PrintJob, Printer, RenderedTicket } from './types.js';
 
@@ -32,10 +31,9 @@ export function createPrinterRuntime(config: AgentConfig): PrinterRuntime {
 
   const baseProfile = escposConfig.profile === '58mm' ? DEVELOPMENT_PROFILE_58MM : DEVELOPMENT_PROFILE_80MM;
   const profile = createPrinterProfile(baseProfile, { supportsCut: escposConfig.supportsCut });
-  let transport: FakeTransport | WindowsRawPrinterTransport | BluetoothSerialTransport;
+  let transport: FakeTransport | WindowsRawPrinterTransport;
   if (!('mode' in escposConfig) || escposConfig.mode === 'escpos-fake') transport = new FakeTransport();
-  else if (escposConfig.mode === 'usb') transport = new WindowsRawPrinterTransport({ printerName: escposConfig.usb.printerName });
-  else transport = new BluetoothSerialTransport(escposConfig.bluetooth);
+  else transport = new WindowsRawPrinterTransport({ printerName: escposConfig.usb.printerName });
   const printer = new EscPosPrinter(new EscPosEncoder(profile), transport);
   return {
     printer,

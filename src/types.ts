@@ -12,11 +12,9 @@ export interface RenderedTicket { text: string; orderNumber: number; lines: read
 export interface Printer { print(ticket: RenderedTicket, jobId: string): Promise<void> }
 export type PrinterProfileName = '58mm' | '80mm';
 export interface UsbPrinterSettings { printerName: string }
-export interface BluetoothPrinterSettings { port: string; baudRate: number }
 export type PrinterConfig =
   | { mode: 'mock' }
-  | { mode: 'usb'; profile: PrinterProfileName; supportsCut: boolean; usb: UsbPrinterSettings; bluetooth?: BluetoothPrinterSettings }
-  | { mode: 'bluetooth'; profile: PrinterProfileName; supportsCut: boolean; bluetooth: BluetoothPrinterSettings; usb?: UsbPrinterSettings }
+  | { mode: 'usb'; profile: PrinterProfileName; supportsCut: boolean; usb: UsbPrinterSettings }
   // Kept for the foundation's deterministic, hardware-free development path.
   | { mode: 'escpos-fake'; profile: PrinterProfileName; supportsCut: boolean }
   /** @deprecated Parsed into `mode`; retained so existing programmatic development configs compile. */
