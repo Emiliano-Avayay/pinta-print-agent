@@ -19,11 +19,8 @@ export const DEVELOPMENT_PROFILE_58MM = freezeProfile({
   finalFeedLines: 3,
 });
 
-/**
- * Provisional 80 mm starting point for the Serforce TP85K rollout.
- * Its columns, encoding, feed and cut command still require physical validation.
- */
-export const PROVISIONAL_PROFILE_80MM = freezeProfile({
+/** Production baseline for the USB-connected Nexuspos NX80 (80 mm ESC/POS). */
+export const NEXUSPOS_NX80_PROFILE_80MM = freezeProfile({
   paperWidthMm: 80,
   columns: 48,
   supportsCut: false,
@@ -33,14 +30,14 @@ export const PROVISIONAL_PROFILE_80MM = freezeProfile({
 
 export const DEVELOPMENT_PROFILES = Object.freeze({
   mm58: DEVELOPMENT_PROFILE_58MM,
-  mm80: PROVISIONAL_PROFILE_80MM,
+  mm80: NEXUSPOS_NX80_PROFILE_80MM,
 });
 
-/** @deprecated Use PROVISIONAL_PROFILE_80MM to make its validation status explicit. */
-export const DEVELOPMENT_PROFILE_80MM = PROVISIONAL_PROFILE_80MM;
+/** @deprecated Prefer NEXUSPOS_NX80_PROFILE_80MM for production code. */
+export const DEVELOPMENT_PROFILE_80MM = NEXUSPOS_NX80_PROFILE_80MM;
 
 export function createPrinterProfile(
-  base: Readonly<PrinterProfile> = PROVISIONAL_PROFILE_80MM,
+  base: Readonly<PrinterProfile> = NEXUSPOS_NX80_PROFILE_80MM,
   overrides: PrinterProfileOverrides = {},
 ): PrinterProfile {
   const profile: PrinterProfile = { ...base, ...overrides };

@@ -37,7 +37,7 @@ export function assertUsbPrinterTestConfig(config: AgentConfig): asserts config 
 export function renderPrinterDiagnosticTicket(config: AgentConfig, job = createPrinterDiagnosticJob()): { ticket: RenderedTicket; job: PrintJob } {
   const runtime = createPrinterRuntime(config);
   const rendered = runtime.renderTicket(job);
-  const footer = { text: 'PRUEBA PINTA TP85K', align: 'center' as const, bold: false, size: 'normal' as const };
+  const footer = { text: 'PRUEBA PINTA NEXUSPOS NX80', align: 'center' as const, bold: false, size: 'normal' as const };
   return { job, ticket: { ...rendered, lines: [...rendered.lines, footer], text: `${rendered.text}\n${footer.text}` } };
 }
 
@@ -48,7 +48,7 @@ export async function runPrinterTest(configPath?: string, dependencies: PrinterT
   const runtime = dependencies.createRuntime(config);
   const job = createPrinterDiagnosticJob();
   const rendered = runtime.renderTicket(job);
-  const footer = { text: 'PRUEBA PINTA TP85K', align: 'center' as const, bold: false, size: 'normal' as const };
+  const footer = { text: 'PRUEBA PINTA NEXUSPOS NX80', align: 'center' as const, bold: false, size: 'normal' as const };
   const ticket = { ...rendered, lines: [...rendered.lines, footer], text: `${rendered.text}\n${footer.text}` };
   await runtime.printer.print(ticket, job.job_id);
   console.log(`Local printer test sent to Windows printer: ${config.printer.usb.printerName}`);

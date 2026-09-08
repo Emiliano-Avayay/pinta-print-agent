@@ -6,7 +6,7 @@ import test from 'node:test';
 import { ConfigError, loadConfig } from '../src/config.js';
 import { EscPosPrinter } from '../src/escpos-printer.js';
 import { EscPosEncoder } from '../src/escpos/encoder.js';
-import { DEVELOPMENT_PROFILE_80MM } from '../src/escpos/profile.js';
+import { NEXUSPOS_NX80_PROFILE_80MM } from '../src/escpos/profile.js';
 import { createPrinterRuntime } from '../src/printer-factory.js';
 import { WindowsRawPrinterTransport, type RawPrinterSpooler } from '../src/transport/windows-raw-printer-transport.js';
 import type { AgentConfig } from '../src/types.js';
@@ -22,9 +22,16 @@ test('configuration parses mock and USB', () => {
 });
 
 test('configuration rejects incomplete physical settings and ambiguous mode/driver', () => {
-  assert.throws(() => readPrinter({ mode: 'usb', profile: '80mm' }), ConfigError);
-  assert.throws(() => readPrinter({ mode: 'usb', profile: '80mm', usb: { printer_name: '' } }), ConfigError);
-  assert.throws(() => readPrinter({ mode: 'bluetooth', profile: '80mm', bluetooth: { port: 'COM5', baud_rate: 0 } }), ConfigError);
+  assert.throws(() => readPrinter({ mode: 'usb', profile: '80mm' }), /printer\.usb is required when printer\.mode is "usb"/);
+  assert.throws(() => readPrinter({ mode: 'usb', profile: '80mm', usb: { printer_name: '' } }), /printer\.usb\.printer_name is required/);
+  assert.throws(
+    () => readPrinter({ mode: 'bluetooth', profile: '80mm', bluetooth: { port: 'COM5', baud_rate: 9600 } }),
+    /printer\.mode "bluetooth" is not supported/,
+  );
+  assert.throws(
+    () => readPrinter({ mode: 'usb', profile: '80mm', supports_cut: true, bluetooth: { port: 'COM5' }, usb: { printer_name: 'Pinta POS' } }),
+    /Bluetooth and serial printer settings are not supported/,
+  );
   assert.throws(() => readPrinter({ mode: 'mock', driver: 'mock' }), ConfigError);
 });
 
@@ -49,7 +56,7 @@ test('Windows RAW transport failures propagate', async () => {
 
 test('EscPosPrinter closes Windows RAW transport when its write fails', async () => {
   const transport = new WindowsRawPrinterTransport({ printerName: 'Pinta POS', platform: 'win32', spooler: { writeRaw: async () => { throw new Error('write failed'); } } });
-  const printer = new EscPosPrinter(new EscPosEncoder(DEVELOPMENT_PROFILE_80MM), transport);
+  const printer = new EscPosPrinter(new EscPosEncoder(NEXUSPOS_NX80_PROFILE_80MM), transport);
   await assert.rejects(() => printer.print({ orderNumber: 1, text: 'x', lines: [{ text: 'x', align: 'left', bold: false, size: 'normal' }] }, 'job'), /write failed/);
   await assert.rejects(() => transport.close(), /not open/);
 });

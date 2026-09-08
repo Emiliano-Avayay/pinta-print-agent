@@ -89,6 +89,15 @@ function includesSequence(haystack: Uint8Array, sequence: Iterable<number>): boo
   return indexOfSequence(haystack, sequence) >= 0;
 }
 
+function occurrencesOfSequence(haystack: Uint8Array, sequence: Iterable<number>): number {
+  const needle = Array.from(sequence);
+  let count = 0;
+  for (let start = 0; start <= haystack.length - needle.length; start += 1) {
+    if (needle.every((byte, offset) => haystack[start + offset] === byte)) count += 1;
+  }
+  return count;
+}
+
 function lineWidth(text: string): number {
   return Array.from(text).length;
 }
@@ -238,6 +247,7 @@ test('cut is emitted only when the selected profile enables it', () => {
     enabled.slice(-ESC_POS_COMMANDS.cut.length),
     Uint8Array.from(ESC_POS_COMMANDS.cut),
   );
+  assert.equal(occurrencesOfSequence(enabled, ESC_POS_COMMANDS.cut), 1);
 });
 
 test('ASCII-safe strategy explicitly transliterates Spanish text and output is deterministic', () => {

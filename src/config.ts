@@ -18,11 +18,19 @@ const profile = (v: unknown): '58mm' | '80mm' => {
 };
 const parseUsb = (v: unknown): UsbPrinterSettings => ({ printerName: asText(object(v, 'printer.usb').printer_name, 'printer.usb.printer_name') });
 
+const rejectLegacySerialSettings = (printer: Record<string, unknown>): void => {
+  if (printer.bluetooth !== undefined || printer.port !== undefined || printer.baud_rate !== undefined) {
+    throw new ConfigError('Bluetooth and serial printer settings are not supported; configure printer.mode "usb" and printer.usb.printer_name');
+  }
+};
+
 function parsePrinterConfig(value: unknown): PrinterConfig {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ConfigError('printer is required');
   const printer = value as Record<string, unknown>;
   // `driver` is the explicit backwards-compatible spelling from the ESC/POS foundation.
   if (printer.mode !== undefined && printer.driver !== undefined) throw new ConfigError('printer.mode and printer.driver cannot both be set');
+  if (printer.mode === 'bluetooth') throw new ConfigError('printer.mode "bluetooth" is not supported; use "usb" with printer.usb.printer_name');
+  rejectLegacySerialSettings(printer);
   if (printer.mode === undefined && printer.driver === 'mock') return { driver: 'mock' };
   if (printer.mode === undefined && printer.driver === 'escpos-fake') return { driver: 'escpos-fake', profile: profile(printer.profile), supportsCut: boolean(printer.supports_cut, 'printer.supports_cut', false) };
   const mode = printer.mode;

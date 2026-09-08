@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EscPosEncoder, ESC_POS_COMMANDS } from '../src/escpos/encoder.js';
-import { PROVISIONAL_PROFILE_80MM } from '../src/escpos/profile.js';
+import { NEXUSPOS_NX80_PROFILE_80MM } from '../src/escpos/profile.js';
 import { assertUsbPrinterTestConfig, createPrinterDiagnosticJob, renderPrinterDiagnosticTicket, runPrinterTest } from '../src/printer-test.js';
 import { renderKitchenTicket } from '../src/renderer.js';
 import type { AgentConfig, RenderedTicket } from '../src/types.js';
@@ -17,10 +17,10 @@ test('local printer diagnostic uses a USB-only 80 mm ticket with cut enabled', (
   assert.equal(job.order.number, 999);
   assert.match(ticket.text, /GOLDEN/);
   assert.match(ticket.text, /MEDALLONES: 3/);
-  assert.match(ticket.text, /PRUEBA PINTA TP85K/);
+  assert.match(ticket.text, /PRUEBA PINTA NEXUSPOS NX80/);
   assert.equal(ticket.lines[1]?.size, 'double');
   assert.equal(ticket.lines.at(-1)?.align, 'center');
-  const bytes = new EscPosEncoder({ ...PROVISIONAL_PROFILE_80MM, supportsCut: true }).encode(ticket);
+  const bytes = new EscPosEncoder({ ...NEXUSPOS_NX80_PROFILE_80MM, supportsCut: true }).encode(ticket);
   assert.deepEqual(bytes.slice(-ESC_POS_COMMANDS.cut.length), Uint8Array.from(ESC_POS_COMMANDS.cut));
 });
 
@@ -40,5 +40,5 @@ test('local printer diagnostic only renders and prints; it has no backend or led
   });
   assert.equal(printed.length, 1);
   assert.equal(printed[0]?.jobId, 'local-printer-test');
-  assert.match(printed[0]?.ticket.text ?? '', /PRUEBA PINTA TP85K/);
+  assert.match(printed[0]?.ticket.text ?? '', /PRUEBA PINTA NEXUSPOS NX80/);
 });
