@@ -36,6 +36,10 @@ npm run build
 
 La plantilla de configuración es `config.example.json`. El modo de producción es `printer.mode = "usb"`, que significa cola RAW de Windows hacia USB; `mock` y `escpos-fake` son sólo para desarrollo. El perfil de 80 mm usa 48 columnas, codificación segura ASCII, tres líneas de feed y corte completo cuando `supports_cut` está activado.
 
+### Contratos del protocolo Print Agent
+
+Los esquemas de los recursos se versionan de forma independiente. `GET /api/print-agent/health` usa estrictamente `schema_version: 2`, junto con `status: "ok"` y el `location_id` configurado. `GET /api/print-agent/jobs/next` entrega actualmente `PrintJob` con `schema_version: 1`; `parsePrintJob` lo valida de forma estricta y no se actualiza al cambiar health. Los ACK no tienen un campo `schema_version`: se validan por su estado HTTP y llevan el `claim_token` y resultado correspondientes.
+
 ### Generar el instalador (Windows)
 
 1. Copiá localmente el instalador validado del fabricante en:
