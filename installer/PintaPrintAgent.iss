@@ -70,7 +70,7 @@ begin
       else if ResultCode <> 0 then
         MsgBox('El instalador del driver POS terminó con código ' + IntToStr(ResultCode) + '. Verifique el driver antes de continuar.', mbInformation, MB_OK);
     end;
-    Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{localappdata}\PintaPrintAgent\scripts\configure.ps1') + '"', '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode);
+    Exec('powershell.exe', '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + ExpandConstant('{localappdata}\PintaPrintAgent\scripts\configure.ps1') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;
 

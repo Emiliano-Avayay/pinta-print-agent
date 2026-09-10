@@ -14,6 +14,23 @@ $runtimeRoot = Join-Path $stageRoot 'app\runtime'
 . (Join-Path $PSScriptRoot 'inno-setup.ps1')
 
 function Assert-Required([string]$path, [string]$description) { if (-not (Test-Path -LiteralPath $path)) { throw "$description falta: $path" } }
+function Convert-PintaScriptsToUtf8Bom([string]$scriptsRoot) {
+  $utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+  Get-ChildItem -LiteralPath $scriptsRoot -Filter '*.ps1' -File | ForEach-Object {
+    $content = [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($_.FullName, $content, $utf8WithBom)
+  }
+}
+function Assert-ConfigureScriptEncoding([string]$configurePath) {
+  $bytes = [System.IO.File]::ReadAllBytes($configurePath)
+  if ($bytes.Length -lt 3 -or $bytes[0] -ne 0xEF -or $bytes[1] -ne 0xBB -or $bytes[2] -ne 0xBF) {
+    throw "configure.ps1 debe entregarse como UTF-8 con BOM para Windows PowerShell 5.1: $configurePath"
+  }
+  $content = [System.Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+  foreach ($word in @('conexión', 'impresión', 'diagnóstico', 'configuración')) {
+    if ($content.IndexOf($word, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) { throw "configure.ps1 perdió '$word' durante la preparación del instalador." }
+  }
+}
 function Get-Sha256([string]$path) {
   if (Get-Command Get-FileHash -ErrorAction SilentlyContinue) {
     return (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash.ToLowerInvariant()
@@ -53,4 +70,6 @@ Copy-Item -LiteralPath (Join-Path $extracted 'node.exe') -Destination (Join-Path
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'dist') -Destination (Join-Path $stageRoot 'app\dist') -Recurse
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'package.json') -Destination (Join-Path $stageRoot 'app\package.json')
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'scripts\windows') -Destination (Join-Path $stageRoot 'scripts') -Recurse
+Convert-PintaScriptsToUtf8Bom (Join-Path $stageRoot 'scripts')
+Assert-ConfigureScriptEncoding (Join-Path $stageRoot 'scripts\configure.ps1')
 Write-Host "Runtime privado preparado: $runtimeRoot"

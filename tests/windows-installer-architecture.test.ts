@@ -29,8 +29,29 @@ test('Windows scripts bind data and the agent task to the original unelevated us
   assert.match(common, /New-ScheduledTaskTrigger -AtLogOn -User \$script:OriginalUserName/);
   assert.match(common, /New-ScheduledTaskPrincipal -UserId \$script:OriginalUserSid -LogonType Interactive -RunLevel Limited/);
   assert.match(common, /Register-ScheduledTask .* -Principal \$principal/);
+  assert.match(common, /"\*\$\(\$script:OriginalUserSid\):\(R,W\)"/);
+  assert.match(common, /'\*S-1-5-18:\(F\)'/);
+  assert.match(common, /'\*S-1-5-32-544:\(F\)'/);
+  assert.doesNotMatch(common, /'SYSTEM:\(F\)'/);
+  assert.doesNotMatch(common, /'Administrators:\(F\)'/);
+  assert.match(common, /\$icaclsExitCode = \$LASTEXITCODE/);
+  assert.match(common, /icacls exit code \$icaclsExitCode/);
   assert.match(configure, /Assert-OriginalUserContext/);
   assert.match(install, /Assert-OriginalUserContext/);
+});
+
+test('Windows Setup stages PowerShell scripts as UTF-8 with BOM and hides its host console', () => {
+  const installer = read('installer/PintaPrintAgent.iss');
+  const prepare = read('installer/prepare.ps1');
+
+  assert.match(installer, /-WindowStyle Hidden -ExecutionPolicy Bypass -File/);
+  assert.match(installer, /configure\.ps1'\) \+ '"', '', SW_HIDE/);
+  assert.match(prepare, /Convert-PintaScriptsToUtf8Bom/);
+  assert.match(prepare, /Assert-ConfigureScriptEncoding/);
+  assert.match(prepare, /0xEF.*0xBB.*0xBF/);
+  for (const word of ['conexión', 'impresión', 'diagnóstico', 'configuración']) {
+    assert.match(prepare, new RegExp(word));
+  }
 });
 
 test('upgrade and uninstall leave persistent user data in place unless explicitly purged', () => {

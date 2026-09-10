@@ -62,7 +62,19 @@ function Register-AgentTask {
 
 function Protect-PintaConfig {
   if (-not (Test-Path -LiteralPath $script:ConfigPath)) { return }
-  # Restrict the token file to the current Windows account, SYSTEM and Administrators.
-  & icacls.exe $script:ConfigPath /inheritance:r /grant:r "${script:OriginalUserName}:(R,W)" 'SYSTEM:(F)' 'Administrators:(F)' | Out-Null
-  if ($LASTEXITCODE -ne 0) { Write-Warning "Could not restrict permissions on $script:ConfigPath" }
+  # Use SIDs so this remains valid on localized Windows installations. The
+  # leading asterisk tells icacls that each identity is a numeric SID.
+  $icaclsArguments = @(
+    $script:ConfigPath,
+    '/inheritance:r',
+    '/grant:r',
+    "*$($script:OriginalUserSid):(R,W)",
+    '*S-1-5-18:(F)',
+    '*S-1-5-32-544:(F)'
+  )
+  & icacls.exe @icaclsArguments | Out-Null
+  $icaclsExitCode = $LASTEXITCODE
+  if ($icaclsExitCode -ne 0) {
+    throw "Could not restrict permissions on $script:ConfigPath (icacls exit code $icaclsExitCode)."
+  }
 }
