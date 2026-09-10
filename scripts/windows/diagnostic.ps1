@@ -2,6 +2,7 @@
 param()
 . (Join-Path $PSScriptRoot 'common.ps1')
 Assert-Windows
+Assert-OriginalUserContext
 
 function Get-PrinterDetails([string]$name) {
   if (-not $name) { return 'Impresora configurada: (sin configurar)' }

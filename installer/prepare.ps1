@@ -14,6 +14,20 @@ $runtimeRoot = Join-Path $stageRoot 'app\runtime'
 . (Join-Path $PSScriptRoot 'inno-setup.ps1')
 
 function Assert-Required([string]$path, [string]$description) { if (-not (Test-Path -LiteralPath $path)) { throw "$description falta: $path" } }
+function Get-Sha256([string]$path) {
+  if (Get-Command Get-FileHash -ErrorAction SilentlyContinue) {
+    return (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash.ToLowerInvariant()
+  }
+
+  $stream = [System.IO.File]::OpenRead($path)
+  $hasher = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    return ([System.BitConverter]::ToString($hasher.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+  } finally {
+    $hasher.Dispose()
+    $stream.Dispose()
+  }
+}
 
 Assert-Required $driver 'El driver POS requerido'
 Assert-Required (Join-Path $sourceRoot 'dist\main.js') 'El build TypeScript'
@@ -28,7 +42,7 @@ if (-not (Test-Path -LiteralPath $archive)) { Invoke-WebRequest -UseBasicParsing
 Invoke-WebRequest -UseBasicParsing "$baseUrl/SHASUMS256.txt" -OutFile $checksums
 $expected = ((Get-Content -LiteralPath $checksums) | Where-Object { $_ -match " $([regex]::Escape($archiveName))$" } | Select-Object -First 1).Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)[0]
 if (-not $expected) { throw "No se encontró checksum para $archiveName." }
-$actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
+$actual = Get-Sha256 $archive
 if ($actual -ne $expected.ToLowerInvariant()) { Remove-Item -LiteralPath $archive -Force; throw "Checksum inválido para $archiveName. La descarga fue eliminada." }
 
 if (Test-Path -LiteralPath $stageRoot) { Remove-Item -LiteralPath $stageRoot -Recurse -Force }

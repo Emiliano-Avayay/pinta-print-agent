@@ -3,6 +3,7 @@ param([switch]$PurgeData, [switch]$DryRun)
 
 . (Join-Path $PSScriptRoot 'common.ps1')
 Assert-Windows
+Assert-OriginalUserContext
 if ($DryRun) { Write-Host "DRY RUN: would unregister '$script:TaskName' and remove $script:AppRoot"; if ($PurgeData) { Write-Host "DRY RUN: would also permanently remove $script:InstallRoot" }; exit 0 }
 if (Get-ScheduledTask -TaskName $script:TaskName -ErrorAction SilentlyContinue) {
   Stop-ScheduledTask -TaskName $script:TaskName -ErrorAction SilentlyContinue

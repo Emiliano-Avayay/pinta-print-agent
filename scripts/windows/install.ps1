@@ -3,6 +3,7 @@ param([switch]$DryRun)
 
 . (Join-Path $PSScriptRoot 'common.ps1')
 Assert-Windows
+Assert-OriginalUserContext
 $nodePath = Get-NodeCommand
 Write-Host "Installing scheduled startup for Pinta Print Agent from $script:AppRoot"
 if ($DryRun) {

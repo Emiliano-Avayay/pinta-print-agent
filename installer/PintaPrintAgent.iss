@@ -14,8 +14,13 @@ DefaultGroupName=Pinta Print Agent
 OutputDir=..\release
 OutputBaseFilename=PintaPrintAgent-Setup-{#MyAppVersion}
 ArchitecturesInstallIn64BitMode=x64compatible
-PrivilegesRequired=admin
-PrivilegesRequiredOverridesAllowed=dialog
+; The agent, its configuration, and its scheduled task belong to the interactive
+; cashier account.  Do not elevate the whole Setup: an administrator credential
+; would otherwise redirect {localappdata} to that administrator's profile.
+PrivilegesRequired=lowest
+; Inno Setup 6 supports commandline or dialog here (not "none"). Commandline
+; removes the elevation-choice UI; ordinary launches therefore remain per-user.
+PrivilegesRequiredOverridesAllowed=commandline
 Compression=lzma2/ultra64
 SolidCompression=yes
 UninstallDisplayName=Pinta Print Agent
@@ -37,6 +42,15 @@ Name: "{group}\Desinstalar"; Filename: "{uninstallexe}"
 [Code]
 var DriverPage: TInputOptionWizardPage;
 
+function InitializeSetup(): Boolean;
+begin
+  { Keep even command-line privilege overrides from changing the owner of the
+    user's LocalAppData, the Start Menu entries, or the uninstaller. }
+  Result := not IsAdminInstallMode;
+  if not Result then
+    MsgBox('Pinta Print Agent debe instalarse como el usuario de caja, sin elevación. El driver POS solicitará permisos de administrador por separado si se selecciona.', mbError, MB_OK);
+end;
+
 procedure InitializeWizard;
 begin
   DriverPage := CreateInputOptionPage(wpSelectDir, 'Driver POS', 'Instalación de impresora', 'Puede instalar o reinstalar el driver validado para la impresora POS.', False, False);
@@ -49,7 +63,9 @@ var ResultCode: Integer;
 begin
   if CurStep = ssPostInstall then begin
     if DriverPage.Values[0] then begin
-      if not Exec(ExpandConstant('{tmp}\POS Printer Driver Setup V11.3.0.3.exe'), '', '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) then
+      { The driver is the only privileged operation. ShellExec with runas starts
+        a separate elevated process and leaves this per-user Setup unchanged. }
+      if not ShellExec('runas', ExpandConstant('{tmp}\POS Printer Driver Setup V11.3.0.3.exe'), '', '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) then
         MsgBox('No se pudo iniciar el instalador del driver POS.', mbError, MB_OK)
       else if ResultCode <> 0 then
         MsgBox('El instalador del driver POS terminó con código ' + IntToStr(ResultCode) + '. Verifique el driver antes de continuar.', mbInformation, MB_OK);

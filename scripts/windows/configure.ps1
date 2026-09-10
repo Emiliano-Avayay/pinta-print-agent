@@ -2,6 +2,7 @@
 param()
 . (Join-Path $PSScriptRoot 'common.ps1')
 Assert-Windows
+Assert-OriginalUserContext
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $node = Get-NodeCommand
