@@ -14,24 +14,12 @@ $runtimeRoot = Join-Path $stageRoot 'app\runtime'
 . (Join-Path $PSScriptRoot 'inno-setup.ps1')
 
 function Assert-Required([string]$path, [string]$description) { if (-not (Test-Path -LiteralPath $path)) { throw "$description falta: $path" } }
-function Get-Iscc {
-  $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-  if ($command) { return $command.Source }
-  $candidates = @(
-    Get-ExistingInnoSetupCandidates -CandidatePaths @(
-      "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
-      "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
-    )
-  )
-  if ($candidates.Count -gt 0) { return $candidates[0] }
-  throw 'No se encontró Inno Setup 6 (ISCC.exe). Instálelo en Windows para generar el Setup.'
-}
 
 Assert-Required $driver 'El driver POS requerido'
 Assert-Required (Join-Path $sourceRoot 'dist\main.js') 'El build TypeScript'
 Assert-Required (Join-Path $sourceRoot 'dist\configurator-cli.js') 'El configurador compilado'
-if ($PreflightOnly) { [void](Get-Iscc); Write-Host 'Preflight correcto.'; exit 0 }
-[void](Get-Iscc)
+if ($PreflightOnly) { [void](Get-InnoSetupIscc); Write-Host 'Preflight correcto.'; exit 0 }
+[void](Get-InnoSetupIscc)
 
 New-Item -ItemType Directory -Force -Path $cacheRoot, $stageRoot | Out-Null
 $archive = Join-Path $cacheRoot $archiveName
