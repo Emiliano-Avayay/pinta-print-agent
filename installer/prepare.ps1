@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([switch]$PreflightOnly)
 
 Set-StrictMode -Version Latest
@@ -11,13 +11,19 @@ $baseUrl = "https://nodejs.org/dist/v$nodeVersion"
 $cacheRoot = Join-Path $sourceRoot 'installer\cache'
 $stageRoot = Join-Path $sourceRoot 'installer\staging'
 $runtimeRoot = Join-Path $stageRoot 'app\runtime'
+. (Join-Path $PSScriptRoot 'inno-setup.ps1')
 
 function Assert-Required([string]$path, [string]$description) { if (-not (Test-Path -LiteralPath $path)) { throw "$description falta: $path" } }
 function Get-Iscc {
   $command = Get-Command ISCC.exe -ErrorAction SilentlyContinue
   if ($command) { return $command.Source }
-  $candidates = @("$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { $_ -and (Test-Path -LiteralPath $_) }
-  if ($candidates.Count) { return $candidates[0] }
+  $candidates = @(
+    Get-ExistingInnoSetupCandidates -CandidatePaths @(
+      "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
+      "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+    )
+  )
+  if ($candidates.Count -gt 0) { return $candidates[0] }
   throw 'No se encontró Inno Setup 6 (ISCC.exe). Instálelo en Windows para generar el Setup.'
 }
 
