@@ -14,6 +14,9 @@
     "printer:test": "tsx scripts/printer-test.ts",
     "start": "node dist/main.js",
     "build": "tsc -p tsconfig.json",
+    "installer:prepare": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File installer/prepare.ps1",
+    "installer:preflight": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File installer/prepare.ps1 -PreflightOnly",
+    "installer:win": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File installer/build.ps1",
     "typecheck": "tsc -p tsconfig.check.json",
     "lint": "eslint .",
     "test": "tsx --test tests/**/*.test.ts"

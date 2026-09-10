@@ -9,3 +9,7 @@ dist/
 *.db
 logs/
 mock_output/
+vendor/pos-driver/*.exe
+installer/cache/
+installer/staging/
+release/

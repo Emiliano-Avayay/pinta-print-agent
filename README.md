@@ -1,101 +1,56 @@
 # Pinta Print Agent
 
-Agente local de impresión para la cocina de Pinta. El runtime activo es Node.js + TypeScript: recibe trabajos mediante HTTPS long polling, conserva el estado en SQLite y no modifica el contrato HTTP, el worker, ACK ni la deduplicación existentes.
-
-La impresora objetivo de producción es una **Nexuspos NX80**, térmica **ESC/POS de 80 mm**, conectada exclusivamente por **USB** e instalada por Windows. El nombre de la cola se define en cada PC después de instalar el driver; no se fija en el código.
-
-## Flujo de producción
+Agente local de impresión de Pinta para Windows 10/11 x64. La impresión de producción permanece en el flujo validado:
 
 ```text
-PrintJob → renderer ESC/POS → WindowsRawPrinterTransport → cola RAW de Windows → USB → Nexuspos NX80
+PrintJob → renderer ESC/POS → WindowsRawPrinterTransport → cola RAW de Windows → USB → impresora POS 80 mm
 ```
 
-`WindowsRawPrinterTransport` entrega el `Uint8Array` ESC/POS directamente al spooler como un documento `RAW`. Usa `OpenPrinter`, `StartDocPrinter`, `StartPagePrinter`, `WritePrinter`, `EndPagePrinter`, `EndDocPrinter` y `ClosePrinter`. No usa HTML, PDF, imagen, GDI, navegador ni acceso USB por VID/PID.
+La cola de Windows (por ejemplo, `POS-80`) es la fuente de verdad. El agente nunca depende de `USB001`, `USB002`, VID/PID ni acceso USB directo.
 
-Los tres modos soportados son:
+## Instalación en una PC de Pinta
 
-- `mock`: modo seguro de desarrollo que mantiene `MockPrinter`.
-- `escpos-fake`: desarrollo/tests sin hardware; captura bytes en memoria.
-- `usb`: producción mediante `WindowsRawPrinterTransport`.
+La PC no necesita Node.js, npm, Git, Python ni una consola. Conectá la impresora USB y ejecutá como administrador `PintaPrintAgent-Setup.exe`.
 
-La configuración sólo acepta esos tres modos. Una configuración heredada que declare un modo o ajustes seriales no compatibles falla al iniciar con un error explícito.
+1. Dejá activada la opción **Instalar/reinstalar driver POS**, salvo que el driver ya esté correctamente instalado. El Setup abre el instalador del fabricante de manera interactiva porque no se asumieron argumentos silenciosos no verificados.
+2. En el configurador, elegí la cola de Windows, normalmente `POS-80`. Se muestran driver, puerto y estado sólo para diagnóstico; el puerto no se guarda.
+3. Completá servidor (por defecto `https://pedidopinta.com.ar`), Location ID (`pinta-main`) y token. El token queda oculto.
+4. Usá **Probar conexión** y **Imprimir prueba**. Esta última usa el mismo renderer ESC/POS y `WindowsRawPrinterTransport` que producción, incluido feed y corte.
+5. Elegí **Guardar y finalizar**. Se crea la tarea oculta **Pinta Print Agent**, que arranca al iniciar sesión y reinicia hasta tres veces con un intervalo de un minuto ante fallos.
 
-## Configuración
+El menú Inicio incluye Configurar, Imprimir prueba, Ver estado, Ver logs, Reiniciar agente y Desinstalar. El diagnóstico no muestra el token e informa ruta, servidor, location, impresora, driver, puerto, estado de tarea, conectividad y últimas líneas del log.
 
-Copiá la plantilla y completá los secretos y el nombre de Windows:
+Los datos persistentes se guardan en `%LOCALAPPDATA%\PintaPrintAgent\`: `config.json`, `agent.sqlite` y `logs`. Las actualizaciones reemplazan sólo `app` y `scripts`, por lo que no borran configuración, ledger ni logs. El desinstalador detiene y elimina la tarea y conserva esos datos como medida segura; se pueden borrar manualmente después de confirmar que ya no se necesitan.
+
+## Desarrollo
+
+Requiere Node.js 24 o superior.
 
 ```powershell
-Copy-Item config.example.json config.json
-```
-
-La configuración productiva es:
-
-```json
-{
-  "server_url": "https://example.com",
-  "agent_token": "PASTE_TOKEN_HERE",
-  "printer": {
-    "mode": "usb",
-    "profile": "80mm",
-    "supports_cut": true,
-    "usb": {
-      "printer_name": "REEMPLAZAR_POR_NOMBRE_EXACTO_DE_WINDOWS"
-    }
-  },
-  "location_id": "pinta-main",
-  "data_dir": "",
-  "long_poll_wait_seconds": 25,
-  "request_timeout_seconds": 40
-}
-```
-
-Para desarrollo seguro puede usarse `"printer": { "mode": "mock" }`. Para ensayar el encoder sin papel, usá `escpos-fake` con `profile`, `supports_cut` y sin backend productivo. Los aliases legacy `driver: "mock"` y `driver: "escpos-fake"` se mantienen sólo para configuraciones de desarrollo ya existentes.
-
-## Cuando llegue la impresora
-
-1. Instalar el driver de la Nexuspos NX80.
-2. Conectarla por USB y verificar que Windows la detecte.
-3. Ejecutar `./scripts/windows/list-printers.ps1`.
-4. Copiar exactamente el nombre listado para la térmica.
-5. Configurar `printer.mode = "usb"`, `printer.profile = "80mm"`, `printer.supports_cut = true` y `printer.usb.printer_name = "<nombre exacto>"`.
-6. Detener temporalmente el agente productivo si hace falta evitar consumo de cola.
-7. Ejecutar `npm run printer:test`.
-8. Verificar caracteres, alineación, negrita, tamaño doble, ancho, feed y cutter.
-9. Sólo entonces habilitar el agente contra la cola productiva.
-
-`list-printers.ps1` sólo consulta Windows. Prefiere `Get-Printer` y usa `Win32_Printer` como respaldo.
-
-`npm run printer:test` carga la configuración real con la misma lógica del runtime, exige `printer.mode = "usb"` y recorre `renderKitchenTicket → EscPosEncoder → WindowsRawPrinterTransport → EscPosPrinter`. Envía un ticket local de diagnóstico `PEDIDO #999` con texto, negrita, número a doble tamaño, alineación, feed y corte. No crea worker, no consulta la cola, no crea `print_jobs`, no realiza ACK y no toca SQLite. No lo ejecutes hasta que la impresora esté disponible.
-
-El perfil `80mm` de Nexuspos NX80 usa 48 columnas, encoding `ascii-safe`, tres líneas de feed y corte completo ESC/POS (`GS V 0`). El encoder agrega el feed antes del corte y emite el corte una única vez por trabajo cuando `supports_cut` está activado.
-
-## Instalación y validación
-
-Se requiere Windows y Node.js 24 o superior:
-
-```powershell
-npm install
+npm ci
 npm test
 npm run lint
 npm run typecheck
 npm run build
-.\scripts\windows\install.ps1
 ```
 
-Para revisar el instalador sin modificar Windows:
+La plantilla de configuración es `config.example.json`. El modo de producción es `printer.mode = "usb"`, que significa cola RAW de Windows hacia USB; `mock` y `escpos-fake` son sólo para desarrollo. El perfil de 80 mm usa 48 columnas, codificación segura ASCII, tres líneas de feed y corte completo cuando `supports_cut` está activado.
 
-```powershell
-.\scripts\windows\install.ps1 -DryRun
-```
+### Generar el instalador (Windows)
 
-La instalación registra la tarea de usuario **Pinta Print Agent**, conserva `%LOCALAPPDATA%\PintaPrintAgent\config.json`, SQLite y logs entre actualizaciones, y no inicia una plantilla nueva hasta que esté configurada.
+1. Copiá localmente el instalador validado del fabricante en:
 
-## Desarrollo sin hardware
+   `vendor\pos-driver\POS Printer Driver Setup V11.3.0.3.exe`
 
-```powershell
-npm run escpos:demo
-```
+   Ese ejecutable está excluido por `.gitignore` y no debe subirse al repositorio.
+2. Instalá [Inno Setup 6](https://jrsoftware.org/isinfo.php) en la máquina de build.
+3. Ejecutá:
 
-El demo crea una vista de texto y los bytes ESC/POS en un directorio temporal. `AsciiSafeTextEncoder` translitera caracteres españoles y evita controles no representables.
+   ```powershell
+   npm ci
+   npm run installer:win
+   ```
 
-SQLite continúa siendo la fuente de verdad local. La secuencia conserva `Printer.print → SQLite PRINTED + COMMIT → ACK printed`; ante un error o incertidumbre no se reimprime automáticamente.
+`installer:prepare` descarga el runtime privado fijado de Node `v24.12.0` para Windows x64, y verifica su SHA-256 contra el manifiesto oficial. También falla antes de empaquetar si faltan el driver, el build, el runtime o `ISCC.exe`. El resultado es `release\PintaPrintAgent-Setup-<versión>.exe` y la copia de entrega `release\PintaPrintAgent-Setup.exe`.
+
+El proyecto puede editarse desde macOS, pero `npm run installer:win` debe ejecutarse en Windows para usar el compilador estable de Inno Setup. La validación final de driver, cola, ancho, corte y arranque automático requiere una prueba física con la NexusPOS/POS 80 mm.
